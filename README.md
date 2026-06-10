@@ -1,137 +1,150 @@
-# polyp-detect
+# Polyp Detection — Cross-Modal Generalization Study
 
-YOLOv8n / YOLOv11n / YOLOv11s polyp detector on PolypDB — Phase 1 + Cross-Modality
+**PolypDB · YOLO26s · Trained on WLI → Tested on 4 Unseen Modalities**
 
-**Dataset:** [PolypDB](https://osf.io/pr7ms/) — 3,934 endoscopy images, 5 modalities (WLI/NBI/BLI/FICE/LCI)  
-**Phase 1 scope:** WLI-only training → cross-modality evaluation  
-**Architecture:** YOLO family (v8n / v11n / v11s)  
-**SOTA reference:** GDCA-Net mAP@50 = 85.9% · Best YOLO in paper (YOLOv6) = 92.5%
+> Submitted to BDI National AI Hackathon 2026 — AI for Healthcare track  
+> Results: June 12, 2026
 
 ---
 
-## Results — WLI Training (100 epochs + HSV augmentation)
+## The Question This Study Answers
 
-| Model | mAP@50 | mAP@50-95 | Precision | Recall |
-|---|---|---|---|---|
-| YOLOv11s (พี่ฟิล์ม baseline · 50ep · no HSV) | 94.09% | — | — | 84.29% |
-| YOLOv8n (100ep + HSV) | 94.6% | 77.4% | 93.6% | 89.3% |
-| YOLOv11n (100ep + HSV) | 93.8% | 76.6% | 92.8% | 88.4% |
-| **YOLOv11s (100ep + HSV)** | **94.7%** | **77.8%** | **94.5%** | **90.5%** |
+PolypDB contains 5 imaging modalities: WLI, NBI, BLI, FICE, LCI.  
+WLI has 3,558 images. Every other modality has 60–146.
 
-Key delta vs baseline: +0.61pp mAP@50, +6.21pp Recall — from 100 epochs + HSV augmentation.  
-All models beat GDCA-Net (85.9%) and best YOLO in paper (92.5%).
+Training a separate model per modality overfits the small sets.  
+The clinically relevant question is different:
+
+> **Does a model trained only on standard white-light imaging generalize to enhanced imaging modalities it has never seen?**
+
+This study answers that directly — with real error analysis, not just headline metrics.
 
 ---
 
-## Results — Cross-Modality Generalization (YOLOv11s · WLI-trained only)
+## Results
 
-Train on WLI → test on 4 unseen modalities with zero additional training.
+### Training Performance (WLI, best epoch)
 
-| Modality | Seen in training? | Test images | mAP@50 | Precision | Recall |
+| Metric | Value |
+|---|---|
+| **mAP@50** | **95.12%** (epoch 96) |
+| mAP@50-95 | 78.5% |
+
+### Evaluation — WLI Val Set (538 images)
+
+| Metric | Value |
+|---|---|
+| Precision | 93.9% |
+| Recall | 89.4% |
+| F1 | 91.6% |
+| mIoU | 84.5% |
+| mAP@50 | **90.2%** |
+| mAP@50-95 | 75.1% |
+
+### Cross-Modal Generalization (zero-shot — model never saw these modalities)
+
+| Modality | Images | mAP@50 | mAP@50-95 | F1 | Notes |
 |---|---|---|---|---|---|
-| WLI | ✅ Yes | 358 | 94.7% | 94.5% | 90.5% |
-| NBI | ❌ No | 14 | 87.4% | 97.5% | 86.7% |
-| BLI | ❌ No | 7 | 96.1% | 99.1% | 88.9% |
-| FICE | ❌ No | 7 | 94.5% | 77.8% | 100.0% |
-| LCI | ❌ No | 6 | 99.5% | 100.0% | 99.7% |
+| **LCI** | 60 | **91.5%** | 77.7% | 94.4% | Best generalization — color profile closest to WLI |
+| **FICE** | 70 | 77.5% | 68.5% | 86.6% | Partial color overlap with WLI |
+| **NBI** | 146 | 67.3% | 50.0% | 75.6% | Vascular enhancement = significant domain shift |
+| **BLI** | 70 | 64.7% | 52.2% | 75.5% | Narrow-band blue light = highest domain shift |
 
-vs paper (per-modality trained models):
+### Error Analysis (WLI Val, 538 images)
 
-| Modality | Paper best | Ours (WLI-only) | Delta |
-|---|---|---|---|
-| WLI | 92.5% | **94.7%** | +2.2pp |
-| NBI | 68.8% | **87.4%** | +18.6pp |
-| BLI | 68.8% | **96.1%** | +27.3pp |
-| FICE | 88.7% | **94.5%** | +5.8pp |
-| LCI | 99.5% | **99.5%** | 0pp |
-
-Single WLI-trained model outperforms paper's per-modality trained models on NBI and BLI by a large margin.
-
----
-
-## Quickstart
-
-### 1. Prepare dataset
-```bash
-python src/prepare_dataset.py --data_root ./data/polypdb --modality WLI
-```
-
-### 2. Train
-```bash
-# YOLOv8n
-python src/train.py --model yolov8n.pt --data configs/wli_yolov8n.yaml --epochs 100
-
-# YOLOv11n
-python src/train.py --model yolo11n.pt --data configs/wli_yolov11n.yaml --epochs 100 --name yolov11n_wli
-
-# YOLOv11s
-python src/train.py --model yolo11s.pt --data configs/wli_yolov11s.yaml --epochs 100 --name yolov11s_wli
-```
-
-### 3. Evaluate (mAP + speed + size + ONNX)
-```bash
-python src/evaluate.py --weights runs/train/yolov11s_wli/weights/best.pt
-```
-
-### 4. Cross-modality evaluation
-```bash
-python src/cross_modality_eval.py \
-  --weights runs/train/yolov11s_wli/weights/best.pt \
-  --data_root ./data/polypdb
-```
-
-### 5. Train on Kaggle (recommended — free T4 GPU)
-Upload `notebooks/polypdb_comparison.ipynb` → enable GPU T4 → run all cells.
-
----
-
-## Project Structure
-```
-polyp-detect/
-├── configs/
-│   ├── wli_yolov8n.yaml         # Dataset config — YOLOv8n
-│   ├── wli_yolov11n.yaml        # Dataset config — YOLOv11n
-│   └── wli_yolov11s.yaml        # Dataset config — YOLOv11s
-├── notebooks/
-│   ├── polypdb_yolov8n_wli.ipynb    # Phase 1: YOLOv8n baseline (พี่ฟิล์ม)
-│   └── polypdb_comparison.ipynb     # Phase 1+: Multi-model + cross-modality
-├── src/
-│   ├── prepare_dataset.py       # COCO → YOLO conversion, WLI filter
-│   ├── train.py                 # Training script
-│   ├── evaluate.py              # mAP + speed + ONNX export
-│   └── cross_modality_eval.py   # Cross-modality generalization test
-└── data/                        # (gitignored) downloaded dataset
-```
-
----
-
-## Pre-trained Weights
-
-Trained model weights available on Google Drive:  
-[Download Model Weights (.pt)](https://drive.google.com/drive/folders/11DyxCTp5oOPeZy0iC92uq0J_M_VEpO0V?usp=sharing)
-
-| File | Size | mAP@50 |
+| Error type | Count | Rate |
 |---|---|---|
-| DOWNLOAD_YOLOv8n_best.pt | 6.0 MB | 94.6% |
-| DOWNLOAD_YOLOv11n_best.pt | 5.2 MB | 93.8% |
-| DOWNLOAD_YOLOv11s_best.pt | 18.3 MB | 94.7% |
+| Complete miss (0 predictions) | 7 | **1.3%** |
+| Low confidence (< 0.5) | 27 | 5.0% |
+| Imprecise boxes (IoU 0.5–0.75) | 36 | 6.7% |
+
+**7/538 complete misses** — model is reliable on training modality with very low false-negative rate.
 
 ---
 
-## Dataset Details
+## Why the Cross-Modal Gap Exists
 
-| Modality | Images | % of total |
+**LCI generalizes best** — LCI (Linked Color Imaging) enhances mucosal contrast while preserving white-light color balance. Its color profile overlaps substantially with WLI.
+
+**NBI and BLI drop significantly** — Narrow-band imaging highlights vascular patterns using blue (415nm) and green (540nm) light. This produces fundamentally different color statistics vs WLI. The gap is expected and clinically meaningful: these modalities require either multi-modal training or domain adaptation.
+
+**FICE sits in between** — Flexible spectral imaging color enhancement uses post-processing to simulate narrow-band contrast. Partial WLI overlap explains the middle-ground performance.
+
+---
+
+## Model & Training Config
+
+| Parameter | Value |
+|---|---|
+| Model | YOLO26s (Ultralytics 8.4.6x) |
+| Parameters | 9.47M |
+| GFLOPs | 20.5 |
+| Epochs | 100 (best weights: epoch 96) |
+| Batch size | 32 |
+| Image size | 640px |
+| Hardware | Kaggle T4 GPU (~2 hours) |
+| Training modality | WLI only (`WLI_ONLY = True`) |
+
+**Augmentation:**
+```
+HSV: h=0.015, s=0.7, v=0.4
+Flips: flipud=0.5, fliplr=0.5
+mixup=0.1, copy_paste=0.1, close_mosaic=10
+```
+
+**Dataset split (WLI):** 2,511 train / 538 val / 539 test (70/15/15)
+
+---
+
+## Dataset
+
+**PolypDB** — Jha et al. 2024 ([arXiv:2409.00045](https://arxiv.org/abs/2409.00045))  
+3,904 colonoscopy images · 5 modalities · 3 hospitals (Norway, Sweden, Vietnam)
+
+| Modality | Full name | Total images |
 |---|---|---|
-| WLI (White Light) | ~3,558 | 90.4% |
-| NBI | ~146 | 3.7% |
-| BLI | ~60 | 1.5% |
-| FICE | ~88 | 2.2% |
-| LCI | ~82 | 2.1% |
+| WLI | White Light Imaging | 3,608 |
+| NBI | Narrow Band Imaging | 146 |
+| BLI | Blue Light Imaging | 70 |
+| FICE | Flexible Spectral Imaging Color Enhancement | 70 |
+| LCI | Linked Color Imaging | 60 |
 
 ---
 
-## References
-- Paper: [PolypDB arxiv 2409.00045](https://arxiv.org/abs/2409.00045)
-- Dataset: [OSF osf.io/pr7ms](https://osf.io/pr7ms/)
-- GitHub: [DebeshJha/PolypDB](https://github.com/DebeshJha/PolypDB)
-- Ultralytics: [docs.ultralytics.com](https://docs.ultralytics.com)
+## Reproduce
+
+```bash
+# Install
+pip install ultralytics==8.4.6
+
+# Train (WLI only)
+python train.py --data polypdb_wli.yaml --model yolo26s.pt --epochs 100 --batch 32 --imgsz 640
+
+# Evaluate cross-modality
+python eval.py --weights runs/train/best.pt --data polypdb_nbi.yaml
+python eval.py --weights runs/train/best.pt --data polypdb_bli.yaml
+python eval.py --weights runs/train/best.pt --data polypdb_fice.yaml
+python eval.py --weights runs/train/best.pt --data polypdb_lci.yaml
+```
+
+Full notebook on Kaggle: [link coming after BDI results]
+
+---
+
+## What's Next
+
+- [ ] Train on ALL 5 modalities (`WLI_ONLY = False`) — measure cross-modal gap reduction
+- [ ] Add YOLOv11s and Faster R-CNN comparison (pending collaborator feedback)
+- [ ] Explore domain adaptation techniques for NBI/BLI gap
+- [ ] Package as reproducible Kaggle notebook
+
+---
+
+## Related Projects
+
+- [รู้รอบกรุง](https://github.com/Mad-m-dock/ruurobnkrung) — Thai civic RAG assistant (LINE OA)
+- [Jenna OS](https://github.com/Mad-m-dock/jenna-os-skeleton) — Autonomous multi-agent AI system
+
+---
+
+*Questions or collaboration: stangykung19@gmail.com*
