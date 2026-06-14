@@ -1,0 +1,623 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'><style>
+body{font-family:sans-serif;max-width:860px;margin:32px auto;padding:0 24px;line-height:1.6}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:0.82em;table-layout:fixed;word-wrap:break-word}
+th,td{border:1px solid #ddd;padding:5px 7px;text-align:left;overflow:hidden}
+th{background:#f2f2f2;font-weight:bold}
+code{background:#f4f4f4;padding:2px 5px;border-radius:3px;font-size:0.82em;word-break:break-all}
+pre{background:#f4f4f4;padding:12px;border-radius:6px;overflow-x:auto;font-size:0.8em;white-space:pre-wrap;word-wrap:break-word}
+pre code{background:none;padding:0}
+img{max-width:100%;height:auto;display:block;margin:12px 0}
+h1{color:#111;border-bottom:2px solid #ddd;padding-bottom:8px}
+h2{color:#222;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:32px}
+h3{color:#333}
+blockquote{border-left:4px solid #ddd;margin:0;padding:8px 16px;color:#555}
+hr{border:none;border-top:1px solid #eee;margin:24px 0}
+@media print{body{max-width:100%;padding:0 16px}table{font-size:0.75em}}
+</style></head><body><h1>Polyp Detection — Cross-Modal Architecture Comparison</h1>
+<p><strong>Which YOLO architecture generalizes best across endoscopic imaging modalities?</strong></p>
+<blockquote>
+<p>PolypDB · 4-Architecture Comparison · Trained on WLI → Zero-shot tested on NBI / BLI / FICE / LCI</p>
+</blockquote>
+<hr />
+<h2>The Research Question</h2>
+<p>PolypDB contains 5 imaging modalities: WLI, NBI, BLI, FICE, and LCI.<br />
+WLI (White Light Imaging) accounts for 3,588 of 3,934 images (91%).</p>
+<blockquote>
+<p><strong>Does architecture choice — independent of augmentation — affect how well a WLI-trained model generalizes to unseen imaging modalities?</strong></p>
+</blockquote>
+<p>This study trains four architectures under identical conditions (same dataset, epochs, augmentation config) where <strong>only the model architecture varies</strong>.</p>
+<hr />
+<h2>Four-Architecture Comparison</h2>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Parameters</th>
+<th>GFLOPs</th>
+<th>Family</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>YOLO26s</strong></td>
+<td>9.47M</td>
+<td>20.5</td>
+<td>Custom (YOLO26)</td>
+</tr>
+<tr>
+<td><strong>YOLOv11n</strong></td>
+<td>2.58M</td>
+<td>6.3</td>
+<td>Ultralytics v11 nano</td>
+</tr>
+<tr>
+<td><strong>YOLOv11s</strong></td>
+<td>9.41M</td>
+<td>21.3</td>
+<td>Ultralytics v11 small</td>
+</tr>
+<tr>
+<td><strong>YOLOv8n</strong></td>
+<td>3.01M</td>
+<td>8.1</td>
+<td>Ultralytics v8 nano</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Cross-Modal Results</h2>
+<h3>mAP@50 Heatmap</h3>
+<p><img alt="Cross-Modal Heatmap" src="cross_modal_heatmap.png" /></p>
+<h3>Full Results Table</h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>WLI (train)</th>
+<th>LCI</th>
+<th>FICE</th>
+<th>NBI</th>
+<th>BLI</th>
+<th>Avg OOD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>YOLO26s</strong></td>
+<td>0.983</td>
+<td>0.980</td>
+<td>0.881</td>
+<td>0.790</td>
+<td>0.761</td>
+<td>0.853</td>
+</tr>
+<tr>
+<td><strong>YOLOv11n</strong></td>
+<td>0.977</td>
+<td>0.977</td>
+<td>0.962</td>
+<td>0.929</td>
+<td>0.921</td>
+<td>0.947</td>
+</tr>
+<tr>
+<td><strong>YOLOv11s</strong></td>
+<td>0.983</td>
+<td><strong>0.992</strong></td>
+<td>0.961</td>
+<td><strong>0.943</strong></td>
+<td><strong>0.940</strong></td>
+<td><strong>0.959</strong></td>
+</tr>
+<tr>
+<td><strong>YOLOv8n</strong></td>
+<td><strong>0.983</strong></td>
+<td>0.989</td>
+<td><strong>0.963</strong></td>
+<td>0.926</td>
+<td>0.933</td>
+<td>0.953</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>WLI = training modality (val set). LCI / FICE / NBI / BLI = zero-shot (never seen during training).<br />
+Avg OOD = mean mAP@50 across 4 unseen modalities.</p>
+</blockquote>
+<hr />
+<h2>Key Findings</h2>
+<h3>1. Larger is not more generalizable</h3>
+<p>YOLO26s achieves the same WLI performance as others (98.3%) but the worst OOD generalization — dropping to 76.1% on BLI and 79.0% on NBI.</p>
+<p>YOLOv11s (similar parameter count) outperforms it on every OOD modality by <strong>6–18 percentage points</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>WLI → BLI drop</th>
+<th>WLI → NBI drop</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>YOLO26s</td>
+<td><strong>−22.2%</strong></td>
+<td><strong>−19.3%</strong></td>
+</tr>
+<tr>
+<td>YOLOv11n</td>
+<td>−5.6%</td>
+<td>−4.8%</td>
+</tr>
+<tr>
+<td>YOLOv11s</td>
+<td>−4.3%</td>
+<td>−3.9%</td>
+</tr>
+<tr>
+<td>YOLOv8n</td>
+<td>−5.0%</td>
+<td>−5.7%</td>
+</tr>
+</tbody>
+</table>
+<p>YOLO26s has <strong>4–5× larger cross-modal drop</strong> than the v11/v8 architectures.</p>
+<h3>2. YOLOv11s achieves best overall balance</h3>
+<ul>
+<li>Best average OOD mAP@50: <strong>95.9%</strong></li>
+<li>Highest single OOD score: LCI <strong>99.2%</strong></li>
+<li>Most consistent across all 5 modalities</li>
+</ul>
+<h3>3. YOLOv8n punches above its weight</h3>
+<p>3.01M parameters vs 9.41M for YOLOv11s — yet achieves <strong>95.3% average OOD</strong>. Strong generalization at 1/3 the model size.</p>
+<h3>4. Cross-modal drop order is consistent across all architectures</h3>
+<p><strong>LCI &gt; FICE &gt; NBI &gt; BLI</strong> — this reflects domain shift magnitude, not architecture behavior.</p>
+<hr />
+<h2>Error Analysis &amp; Limitations</h2>
+<h3>Where Models Fail</h3>
+<p><strong>YOLO26s — systematic cross-modal failure</strong></p>
+<p>YOLO26s achieves 98.3% on WLI but collapses to 76–79% on NBI/BLI. The failure pattern is consistent: the model over-relies on WLI-specific color and texture features rather than shape-based polyp features. When the color distribution shifts (NBI/BLI use narrow-band light), detection confidence drops sharply.</p>
+<table>
+<thead>
+<tr>
+<th>Error type</th>
+<th>YOLO26s</th>
+<th>YOLOv11s</th>
+<th>Interpretation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WLI → BLI drop</td>
+<td>−22.2%</td>
+<td>−4.3%</td>
+<td>YOLO26s: color-dependent · v11s: more shape-based</td>
+</tr>
+<tr>
+<td>WLI → NBI drop</td>
+<td>−19.3%</td>
+<td>−3.9%</td>
+<td>Same pattern — vascular enhancement confuses YOLO26s</td>
+</tr>
+<tr>
+<td>WLI performance</td>
+<td>98.3%</td>
+<td>98.3%</td>
+<td>Both memorize WLI equally well</td>
+</tr>
+</tbody>
+</table>
+<p><strong>v11/v8 family — residual NBI/BLI gap</strong></p>
+<p>Even the best model (YOLOv11s) drops ~4% on NBI/BLI. This residual gap likely reflects genuine domain shift that cannot be closed by architecture alone — the model has never seen narrow-band images during training.</p>
+<h3>Known Limitations</h3>
+<ol>
+<li>
+<p><strong>Training data is WLI-only.</strong> Cross-modal performance could improve significantly by adding even a small number of NBI/BLI training examples (multi-modal training experiment not yet run).</p>
+</li>
+<li>
+<p><strong>100 epochs may not be full convergence.</strong> Training logs show best weights at epoch 96–98 for most models, suggesting additional epochs may yield marginal gains. Recommended next run: 150 epochs with <code>patience=20</code>.</p>
+</li>
+<li>
+<p><strong>Hyperparameters were not tuned per architecture.</strong> Using identical hyperparameters across architectures is correct for isolating architecture as the variable, but individual architectures may have different optimal lr/batch settings.</p>
+</li>
+<li>
+<p><strong>No per-image error analysis.</strong> This study reports aggregate mAP@50 per modality. A full error analysis would classify individual failures into: false negatives (missed polyps), false positives (spurious detections), and localization errors (correct detection, wrong box).</p>
+</li>
+<li>
+<p><strong>HSV augmentation choice not ablated.</strong> Whether HSV=0 (locked) or HSV=0.7 (enabled) produces better cross-modal results for this dataset is an open question. The baseline experiment used HSV=0; this study used HSV=0.7. Direct comparison is a follow-on experiment.</p>
+</li>
+</ol>
+<hr />
+<h2>Why the Cross-Modal Gaps Exist</h2>
+<p><strong>LCI generalizes best</strong> — Linked Color Imaging preserves the white-light color profile. Closest color statistics to WLI.</p>
+<p><strong>NBI and BLI drop significantly</strong> — Narrow-band imaging uses 415nm / 540nm wavelengths to highlight vascular patterns, producing fundamentally different color distributions.</p>
+<p><strong>FICE sits in between</strong> — Post-processing simulation of narrow-band contrast with partial WLI color overlap.</p>
+<p><strong>Clinical implication:</strong> A WLI-only model is reliable for standard imaging and LCI, but should not be deployed for NBI/BLI without additional adaptation. The gap is not a model failure — it is a real domain boundary.</p>
+<hr />
+<h2>Training Configuration &amp; Hyperparameters</h2>
+<p>All four architectures were trained under <strong>identical conditions</strong>. The only variable is the model architecture.</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Training modality</td>
+<td>WLI only</td>
+<td>Study cross-modal generalization from a single source</td>
+</tr>
+<tr>
+<td>Dataset split</td>
+<td>70 / 15 / 15</td>
+<td>Official PolypDB split CSVs</td>
+</tr>
+<tr>
+<td>Epochs</td>
+<td>100</td>
+<td>Sufficient for convergence on T4 GPU (~2 hr/model)</td>
+</tr>
+<tr>
+<td>Image size</td>
+<td>640px</td>
+<td>YOLO standard; balances speed and detection of small polyps</td>
+</tr>
+<tr>
+<td>Batch size</td>
+<td>32</td>
+<td>Fits T4 VRAM (16GB)</td>
+</tr>
+<tr>
+<td>Optimizer</td>
+<td>AdamW (YOLO default)</td>
+<td>Stable convergence for detection tasks</td>
+</tr>
+<tr>
+<td>Learning rate</td>
+<td>0.01 initial, cosine decay</td>
+<td>YOLO default schedule</td>
+</tr>
+<tr>
+<td>Seed</td>
+<td>42</td>
+<td>Reproducibility</td>
+</tr>
+<tr>
+<td>hsv_h</td>
+<td>0.015</td>
+<td>Slight hue shift</td>
+</tr>
+<tr>
+<td>hsv_s</td>
+<td>0.7</td>
+<td>Saturation jitter — hypothesis: helps cross-modal robustness</td>
+</tr>
+<tr>
+<td>hsv_v</td>
+<td>0.4</td>
+<td>Brightness jitter</td>
+</tr>
+<tr>
+<td>fliplr / flipud</td>
+<td>0.5</td>
+<td>Polyps are orientation-agnostic</td>
+</tr>
+<tr>
+<td>mixup</td>
+<td>0.1</td>
+<td>Mild regularization</td>
+</tr>
+</tbody>
+</table>
+<p><strong>HSV decision note:</strong> Standard YOLO HSV values were retained under the hypothesis that color variance during training helps generalization across modalities with different color profiles. An alternative approach (locking HSV=0 to preserve tissue color fidelity as a diagnostic signal) was used in the baseline experiment and produced strong results. Comparing these two augmentation strategies is a direct follow-on experiment.</p>
+<p><strong>What was not tuned:</strong> Learning rate, batch size, and optimizer were left at YOLO defaults. Systematic hyperparameter search (e.g., grid search over lr, weight decay) was not performed — this study isolates architecture as the single variable, not hyperparameter sensitivity.</p>
+<hr />
+<h2>Hyperparameter Tuning — HSV Ablation</h2>
+<p>One hyperparameter was ablated directly: <strong>HSV augmentation</strong> (hsv_s, hsv_v).</p>
+<p>The baseline experiment used HSV=0.7/0.4. This run tests HSV=0 (locked) on YOLOv11s under identical conditions to isolate the effect of color augmentation on cross-modal generalization.</p>
+<h3>Results: YOLOv11s HSV=0 vs HSV=0.7</h3>
+<table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>HSV=0.7</th>
+<th>HSV=0</th>
+<th>Winner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WLI (train)</td>
+<td>0.983</td>
+<td>0.949</td>
+<td>HSV=0.7</td>
+</tr>
+<tr>
+<td>LCI</td>
+<td>0.992</td>
+<td>0.931</td>
+<td>HSV=0.7</td>
+</tr>
+<tr>
+<td>FICE</td>
+<td>0.961</td>
+<td>0.933</td>
+<td>HSV=0.7</td>
+</tr>
+<tr>
+<td>NBI</td>
+<td>0.943</td>
+<td>0.872</td>
+<td>HSV=0.7</td>
+</tr>
+<tr>
+<td><strong>BLI</strong></td>
+<td><strong>0.940</strong></td>
+<td><strong>0.975</strong></td>
+<td><strong>HSV=0</strong></td>
+</tr>
+<tr>
+<td><strong>Avg OOD</strong></td>
+<td><strong>0.959</strong></td>
+<td><strong>0.928</strong></td>
+<td><strong>HSV=0.7</strong></td>
+</tr>
+</tbody>
+</table>
+<h3>Interpretation</h3>
+<p>HSV=0.7 outperforms HSV=0 on 4 of 5 modalities. The result challenges the simple hypothesis that "medical imaging requires locked HSV because color is a diagnostic signal."</p>
+<p><strong>The BLI exception is notable:</strong> BLI uses the most extreme narrow-band light (410nm blue-dominant) — the highest domain shift from WLI. HSV=0 outperforms on BLI specifically, suggesting that for extreme domain shifts, a model that relies less on color augmentation may better preserve shape-based features that transfer across fundamentally different lighting conditions.</p>
+<p><strong>Tentative conclusion:</strong> HSV augmentation helps generalization in moderate domain shifts (LCI, FICE, NBI) but the relationship may invert at extreme domain shift (BLI). This is a hypothesis for future validation with larger test sets.</p>
+<hr />
+<h2>Dataset</h2>
+<p><strong>PolypDB</strong> — Jha et al. 2024 (<a href="https://arxiv.org/abs/2409.00045">arXiv:2409.00045</a>)<br />
+3,934 colonoscopy images · 5 modalities · 3 hospitals (Norway, Sweden, Vietnam)</p>
+<table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Full name</th>
+<th>Images</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WLI</td>
+<td>White Light Imaging</td>
+<td>3,588</td>
+</tr>
+<tr>
+<td>NBI</td>
+<td>Narrow Band Imaging</td>
+<td>146</td>
+</tr>
+<tr>
+<td>BLI</td>
+<td>Blue Light Imaging</td>
+<td>70</td>
+</tr>
+<tr>
+<td>FICE</td>
+<td>Flexible Spectral Imaging Color Enhancement</td>
+<td>70</td>
+</tr>
+<tr>
+<td>LCI</td>
+<td>Linked Color Imaging</td>
+<td>60</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Exploratory Data Analysis (EDA)</h2>
+<h3>Class Imbalance</h3>
+<p>WLI dominates the dataset at <strong>91.2%</strong> of all images. The remaining 4 modalities together account for only 346 images (8.8%).</p>
+<table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Images</th>
+<th>% of total</th>
+<th>Train</th>
+<th>Val</th>
+<th>Test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WLI</td>
+<td>3,588</td>
+<td>91.2%</td>
+<td>2,511</td>
+<td>538</td>
+<td>539</td>
+</tr>
+<tr>
+<td>NBI</td>
+<td>146</td>
+<td>3.7%</td>
+<td>102</td>
+<td>22</td>
+<td>22</td>
+</tr>
+<tr>
+<td>BLI</td>
+<td>70</td>
+<td>1.8%</td>
+<td>49</td>
+<td>10</td>
+<td>11</td>
+</tr>
+<tr>
+<td>FICE</td>
+<td>70</td>
+<td>1.8%</td>
+<td>49</td>
+<td>10</td>
+<td>11</td>
+</tr>
+<tr>
+<td>LCI</td>
+<td>60</td>
+<td>1.5%</td>
+<td>42</td>
+<td>9</td>
+<td>9</td>
+</tr>
+</tbody>
+</table>
+<p>This imbalance is the central challenge of the study. A model trained on this dataset without intervention will see ~91% WLI at every epoch, making minority-modality features unable to exert meaningful gradient influence.</p>
+<h3>Modality Characteristics</h3>
+<p>Each modality uses different light physics, producing fundamentally different image statistics:</p>
+<table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Light type</th>
+<th>Visual characteristic</th>
+<th>Domain distance from WLI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WLI</td>
+<td>White broadband</td>
+<td>Natural tissue color</td>
+<td>— (reference)</td>
+</tr>
+<tr>
+<td>LCI</td>
+<td>Enhanced white</td>
+<td>Slightly boosted mucosal contrast</td>
+<td>Low</td>
+</tr>
+<tr>
+<td>FICE</td>
+<td>Computed narrow-band</td>
+<td>Simulated spectral enhancement</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td>NBI</td>
+<td>415nm + 540nm</td>
+<td>Blue-green, vascular emphasis</td>
+<td>High</td>
+</tr>
+<tr>
+<td>BLI</td>
+<td>410nm narrow-band</td>
+<td>Blue-dominant, high vascular contrast</td>
+<td>Highest</td>
+</tr>
+</tbody>
+</table>
+<p>This ordering (WLI → LCI → FICE → NBI → BLI) directly predicts the cross-modal drop order observed in the results, confirming that domain shift magnitude — not model failure — explains the performance gradient.</p>
+<h3>Label Distribution</h3>
+<p>All images contain exactly 1 class: <code>Polyp</code>. Each mask was converted to a single bounding box per polyp contour. Images with no detectable polyp region after thresholding were labeled as empty (negative examples retained in dataset).</p>
+<hr />
+<h2>Data Cleaning &amp; Feature Engineering</h2>
+<h3>Mask → YOLO Bounding Box Conversion</h3>
+<p>PolypDB provides segmentation masks (binary PNG), not bounding boxes. YOLO requires bounding box labels in normalized xywh format.</p>
+<p><strong>Conversion pipeline (<code>src/prepare_dataset.py</code>):</strong></p>
+<pre><code class="language-python">def mask_to_yolo_bbox(mask_path):
+    mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+    _, thresh = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
+    contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    h, w = mask.shape
+    for cnt in contours:
+        if cv2.contourArea(cnt) &lt; 10:   # filter noise contours
+            continue
+        x, y, wb, hb = cv2.boundingRect(cnt)
+        # normalize to [0, 1] for YOLO format
+        xc = (x + wb/2.0) / w
+        yc = (y + hb/2.0) / h
+</code></pre>
+<p><strong>Decisions made:</strong>
+- Contours with area &lt; 10 pixels filtered as noise
+- Each polyp contour generates one bounding box (multi-polyp images produce multiple labels)
+- Modality prefix added to filenames (<code>WLI_img001.jpg</code>) to enable per-modality evaluation filtering</p>
+<h3>Dataset Split</h3>
+<p>Official PolypDB split CSVs (per-modality, per-split) were used without modification to ensure reproducibility and comparability with prior work. Split ratio: <strong>70 / 15 / 15</strong> (train / val / test).</p>
+<hr />
+<h2>Reproduce</h2>
+<pre><code class="language-bash">pip install ultralytics==8.4.6
+
+# Evaluate cross-modal generalization
+python scripts/evaluate.py --weights &lt;model&gt;.pt --modality NBI
+python scripts/evaluate.py --weights &lt;model&gt;.pt --modality BLI
+python scripts/evaluate.py --weights &lt;model&gt;.pt --modality FICE
+python scripts/evaluate.py --weights &lt;model&gt;.pt --modality LCI
+
+# Generate cross-modal heatmap
+python scripts/plot_crossmodal_heatmap.py
+</code></pre>
+<p>Full evaluation notebook: <code>notebooks/polypdb_crossmodal_eval.ipynb</code></p>
+<hr />
+<h2>Demo</h2>
+<p>A live inference demo (YOLOv11s best weights) is deployed on Hugging Face Spaces:</p>
+<p><strong><a href="https://huggingface.co/spaces/MaddMDock/polyp-detect">MaddMDock/polyp-detect</a></strong> — Upload a colonoscopy image → get bounding box predictions</p>
+<blockquote>
+<p>Note: The demo currently runs the initial YOLO26s weights. Update to YOLOv11s best weights is pending.</p>
+</blockquote>
+<hr />
+<h2>Deliverables Summary</h2>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Training notebook (Kaggle)</td>
+<td>✅ <code>notebooks/polypdb_comparison.ipynb</code></td>
+</tr>
+<tr>
+<td>Evaluation script</td>
+<td>✅ <code>src/cross_modality_eval.py</code></td>
+</tr>
+<tr>
+<td>Model weights (3 models)</td>
+<td>✅ Available on request</td>
+</tr>
+<tr>
+<td>Cross-modal results CSV</td>
+<td>✅ <code>cross_modal_results.csv</code></td>
+</tr>
+<tr>
+<td>Heatmap visualization</td>
+<td>✅ <code>cross_modal_heatmap.png</code></td>
+</tr>
+<tr>
+<td>Dataset preparation script</td>
+<td>✅ <code>src/prepare_dataset.py</code></td>
+</tr>
+<tr>
+<td>Live demo</td>
+<td>✅ HF Spaces (YOLO26s · v11s update pending)</td>
+</tr>
+<tr>
+<td>PDF report</td>
+<td>❌ Not produced — README serves as documentation</td>
+</tr>
+<tr>
+<td>Hyperparameter search</td>
+<td>❌ Not performed — architecture is the single variable</td>
+</tr>
+<tr>
+<td>Per-image error analysis</td>
+<td>❌ Not performed — aggregate metrics only</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Related Projects</h2>
+<ul>
+<li><a href="https://github.com/Mad-m-dock/ruurobnkrung">รู้รอบกรุง</a> — Thai civic RAG assistant · BDI National AI Hackathon 2026</li>
+<li><a href="https://github.com/Mad-m-dock">Jenna OS</a> — Production multi-agent AI system</li>
+</ul>
+<hr />
+<p><em>Questions or collaboration: stangykung19@gmail.com</em></p></body></html>

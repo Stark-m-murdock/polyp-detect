@@ -1,0 +1,531 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'><style>
+body{font-family:sans-serif;max-width:860px;margin:32px auto;padding:0 24px;line-height:1.6}
+table{border-collapse:collapse;width:100%;margin:16px 0;font-size:0.82em;table-layout:fixed;word-wrap:break-word}
+th,td{border:1px solid #ddd;padding:5px 7px;text-align:left;overflow:hidden}
+th{background:#f2f2f2;font-weight:bold}
+code{background:#f4f4f4;padding:2px 5px;border-radius:3px;font-size:0.82em;word-break:break-all}
+pre{background:#f4f4f4;padding:12px;border-radius:6px;overflow-x:auto;font-size:0.8em;white-space:pre-wrap;word-wrap:break-word}
+pre code{background:none;padding:0}
+img{max-width:100%;height:auto;display:block;margin:12px 0}
+h1{color:#111;border-bottom:2px solid #ddd;padding-bottom:8px}
+h2{color:#222;border-bottom:1px solid #eee;padding-bottom:4px;margin-top:32px}
+h3{color:#333}
+blockquote{border-left:4px solid #ddd;margin:0;padding:8px 16px;color:#555}
+hr{border:none;border-top:1px solid #eee;margin:24px 0}
+@media print{body{max-width:100%;padding:0 16px}table{font-size:0.75em}}
+</style></head><body><h1>การตรวจจับติ่งเนื้อในลำไส้ — เปรียบเทียบ YOLO รุ่นต่างๆ ข้ามประเภทกล้อง</h1>
+<p><strong>YOLO รุ่นไหนตรวจจับติ่งเนื้อได้ดีที่สุดเมื่อเปลี่ยนประเภทกล้อง?</strong></p>
+<blockquote>
+<p>PolypDB · เปรียบ YOLO 4 รุ่น · เทรนบนกล้องแสงปกติ (WLI) → ทดสอบกับกล้องพิเศษ 4 ชนิดที่ไม่เคยเห็นมาก่อน</p>
+</blockquote>
+<hr />
+<h2>ก่อนอื่น — เราเปรียบอะไรกับอะไร?</h2>
+<p>ใน Computer Vision มี Model หลายประเภทมากครับ เช่น CNN, U-Net, Transformer แต่ละตัวเหมาะกับงานต่างกัน</p>
+<p><strong>โปรเจกต์นี้ใช้ YOLO เท่านั้น</strong> — ซึ่งเป็น Model ที่เชี่ยวชาญการตรวจจับและระบุตำแหน่งของวัตถุในภาพแบบ Real-time สแกนรูปแค่รอบเดียวแล้วบอกได้เลยว่า "ติ่งเนื้ออยู่ตรงนี้"</p>
+<p>สิ่งที่เราเปรียบคือ <strong>YOLO 4 รุ่น</strong> ที่มีโครงสร้างภายในต่างกัน:
+- YOLO26s — รุ่น Custom ที่ดัดแปลงมา
+- YOLOv11n, YOLOv11s — รุ่นใหม่ล่าสุดจาก Ultralytics (n = เล็ก, s = กลาง)
+- YOLOv8n — รุ่นก่อนหน้า ยังนิยมใช้กันอยู่</p>
+<p>เงื่อนไขการทดลอง: ทุกรุ่นใช้ข้อมูลเดียวกัน เทรนนานเท่ากัน ปรับค่าเหมือนกันทุกอย่าง — <strong>เปลี่ยนแค่ตัว Model</strong></p>
+<hr />
+<h2>คำถามที่ต้องการคำตอบ</h2>
+<p>กล้องส่องลำไส้ในโรงพยาบาลมีหลายประเภท บางชนิดใช้แสงปกติ บางชนิดใช้แสงพิเศษเพื่อเห็นเส้นเลือดหรือเนื้อเยื่อชัดขึ้น</p>
+<p>ภาพจากกล้องแต่ละชนิดมีหน้าตาต่างกันมาก แต่ Dataset ส่วนใหญ่เป็นภาพจากกล้องแสงปกติ (WLI) ถึง 91%</p>
+<p>คำถามคือ:</p>
+<blockquote>
+<p><strong>ถ้าเทรน AI ด้วยกล้องแสงปกติอย่างเดียว — YOLO รุ่นไหนสามารถ "นำความรู้ไปใช้กับกล้องชนิดอื่นที่ไม่เคยเห็น" ได้ดีที่สุด?</strong></p>
+</blockquote>
+<p>คำว่า "นำความรู้ไปใช้กับข้อมูลใหม่ได้" ในภาษา AI เรียกว่า <strong>Generalize</strong> — ถ้า Model generalize ได้ดี แปลว่ามันเข้าใจ "รูปทรงของติ่งเนื้อจริงๆ" ไม่ใช่แค่จำสีและแสงของกล้องตัวที่เทรน</p>
+<hr />
+<h2>4 รุ่นที่นำมาเปรียบเทียบ</h2>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Parameters (จำนวนตัวแปรภายใน model)</th>
+<th>GFLOPs (ความซับซ้อนในการคำนวณต่อภาพ)</th>
+<th>Family (กลุ่ม/รุ่น)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>YOLO26s</strong></td>
+<td>9.47M</td>
+<td>20.5</td>
+<td>Custom YOLO26</td>
+</tr>
+<tr>
+<td><strong>YOLOv11n</strong></td>
+<td>2.58M</td>
+<td>6.3</td>
+<td>Ultralytics v11 ขนาดเล็ก</td>
+</tr>
+<tr>
+<td><strong>YOLOv11s</strong></td>
+<td>9.41M</td>
+<td>21.3</td>
+<td>Ultralytics v11 ขนาดกลาง</td>
+</tr>
+<tr>
+<td><strong>YOLOv8n</strong></td>
+<td>3.01M</td>
+<td>8.1</td>
+<td>Ultralytics v8 ขนาดเล็ก</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>Parameters คือจำนวน "น้ำหนัก" ที่ Model เรียนรู้ระหว่าง Train — มากกว่าไม่ได้แปลว่าดีกว่าเสมอไป นั่นคือสิ่งที่โปรเจกต์นี้ทดสอบ</p>
+</blockquote>
+<hr />
+<h2>สำรวจข้อมูล (EDA)</h2>
+<h3>ความไม่สมดุลของ Dataset</h3>
+<table>
+<thead>
+<tr>
+<th>Modality (ประเภทกล้อง)</th>
+<th>จำนวนรูป (ทั้งหมด)</th>
+<th>% ของทั้งหมด</th>
+<th>Train (ใช้สอน Model)</th>
+<th>Val (ตรวจสอบระหว่างเทรน)</th>
+<th>Test (วัดผลสุดท้าย)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WLI</td>
+<td>3,588</td>
+<td>91.2%</td>
+<td>2,511</td>
+<td>538</td>
+<td>539</td>
+</tr>
+<tr>
+<td>NBI</td>
+<td>146</td>
+<td>3.7%</td>
+<td>102</td>
+<td>22</td>
+<td>22</td>
+</tr>
+<tr>
+<td>BLI</td>
+<td>70</td>
+<td>1.8%</td>
+<td>49</td>
+<td>10</td>
+<td>11</td>
+</tr>
+<tr>
+<td>FICE</td>
+<td>70</td>
+<td>1.8%</td>
+<td>49</td>
+<td>10</td>
+<td>11</td>
+</tr>
+<tr>
+<td>LCI</td>
+<td>60</td>
+<td>1.5%</td>
+<td>42</td>
+<td>9</td>
+<td>9</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Train</strong> = รูปที่ Model เห็นและเรียนรู้จากจริงๆ · <strong>Val (Validation)</strong> = รูปที่ใช้ตรวจสอบระหว่างเทรนว่า Model กำลังดีขึ้นหรือเริ่ม Overfit (จำ Train เกินจนใช้กับรูปใหม่ไม่ได้) — Model ไม่ได้เรียนรู้จาก Val โดยตรง แค่ใช้วัดทิศทาง · <strong>Test</strong> = รูปที่ไม่เคยถูกแตะเลยตลอดการเทรน ใช้วัดผลจริงสุดท้ายเท่านั้น</p>
+</blockquote>
+<p>Dataset นี้มีความลำเอียง (Bias) สูงมาก — WLI มีถึง 91% ส่วนกล้องอื่นมีรวมกันแค่ 9% สิ่งที่เกิดขึ้นระหว่างเทรนคือ Model จะเห็น WLI แทบทุก Batch ทำให้มันค่อยๆ "ถูก shape" ไปตาม WLI โดยไม่ได้ตั้งใจ — นี่คือโจทย์หลักที่ต้องรับมือ</p>
+<h3>ความแตกต่างของแสงแต่ละ Modality</h3>
+<p>กล้องแต่ละชนิดใช้แสงต่างกัน ทำให้ภาพที่ได้มีสีและหน้าตาต่างกันมาก แม้จะถ่ายติ่งเนื้อเดียวกัน</p>
+<table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>ประเภทแสง</th>
+<th>ลักษณะภาพ</th>
+<th>ความต่างจาก WLI</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WLI</td>
+<td>แสงขาวปกติ</td>
+<td>สีเนื้อเยื่อตามความเป็นจริง</td>
+<td>— (ต้นแบบ)</td>
+</tr>
+<tr>
+<td>LCI</td>
+<td>แสงขาวเพิ่มความคมชัด</td>
+<td>ใกล้เคียง WLI แต่คมกว่าเล็กน้อย</td>
+<td>ต่ำ</td>
+</tr>
+<tr>
+<td>FICE</td>
+<td>ประมวลผล Narrow-band</td>
+<td>จำลองความแตกต่างของเนื้อเยื่อ</td>
+<td>กลาง</td>
+</tr>
+<tr>
+<td>NBI</td>
+<td>415nm + 540nm</td>
+<td>สีน้ำเงิน-เขียว เน้นเส้นเลือด</td>
+<td>สูง</td>
+</tr>
+<tr>
+<td>BLI</td>
+<td>410nm Narrow-band</td>
+<td>สีน้ำเงินเข้ม เห็นรายละเอียดสูง</td>
+<td>สูงสุด</td>
+</tr>
+</tbody>
+</table>
+<p>ยิ่งแสงต่างจาก WLI มาก ภาพยิ่งดูแตกต่าง และยิ่งยากสำหรับ Model ที่เทรนจาก WLI — ลำดับนี้จะสะท้อนออกมาในผลการทดลอง</p>
+<hr />
+<h2>การเตรียมข้อมูล</h2>
+<h3>ทำไมต้องแปลง Mask เป็น Bounding Box?</h3>
+<p>PolypDB ให้ข้อมูลมาในรูปแบบ <strong>Segmentation Mask</strong> คือรูปสีขาวดำที่วาดทับบนภาพต้นฉบับ ส่วนสีขาวคือบริเวณที่เป็นติ่งเนื้อ ส่วนสีดำคือเนื้อเยื่อปกติ</p>
+<p>แต่ YOLO ทำงานด้วย <strong>Bounding Box</strong> คือกรอบสี่เหลี่ยมที่ระบุว่า "ติ่งเนื้ออยู่ตรงนี้" — ไม่ได้วาดตามขอบทุกจุด แต่ครอบด้วยกล่องสี่เหลี่ยม</p>
+<pre><code>Mask (ต้นฉบับ):          Bounding Box (ที่ YOLO ต้องการ):
+⬛⬛⬛⬛⬛              ⬛⬛⬛⬛⬛
+⬛⬜⬜⬛⬛    →        ⬛┌──┐⬛⬛
+⬛⬜⬜⬜⬛              ⬛│  │⬛⬛
+⬛⬛⬜⬛⬛              ⬛└──┘⬛⬛
+⬛⬛⬛⬛⬛              ⬛⬛⬛⬛⬛
+</code></pre>
+<p>Script แปลงทำงานดังนี้:
+1. อ่าน Mask → หาขอบของบริเวณสีขาว (Contour)
+2. วาดกรอบสี่เหลี่ยมครอบขอบนั้น
+3. แปลงพิกัดให้เป็นสัดส่วน 0-1 ตามขนาดภาพ (YOLO Format)
+4. ตัดทิ้งถ้า Contour เล็กเกินไป (&lt; 10 pixel) เพราะอาจเป็น Noise</p>
+<p>ใช้ Official Dataset Split ของ PolypDB — แบ่งเป็น Train 70% / Validation 15% / Test 15%</p>
+<hr />
+<h2>ผลลัพธ์</h2>
+<h3>ก่อนดูผล — mAP@50 และ Avg OOD คืออะไร?</h3>
+<p><strong>mAP@50</strong> (Mean Average Precision at IoU 50%) คือตัวชี้วัดหลักของการตรวจจับวัตถุ วัดสองสิ่งพร้อมกัน:
+- "ตรวจเจอไหม?" — Model วาดกรอบมาหรือเปล่า
+- "กรอบถูกไหม?" — กรอบที่วาดทับกับกรอบจริงมากแค่ไหน</p>
+<p><code>@50</code> หมายความว่า นับว่า "ถูก" ก็ต่อเมื่อกรอบที่ Model วาดทับกับกรอบจริงอย่างน้อย 50% ถ้าทับน้อยกว่านั้น = ผิด ค่า 1.0 = แม่นสมบูรณ์, ค่า 0 = พลาดหมด</p>
+<p><strong>Avg OOD</strong> (Average Out-of-Distribution) = ค่าเฉลี่ย mAP@50 ของ 4 กล้องที่ Model <strong>ไม่เคยเห็นระหว่างเทรน</strong> (LCI + FICE + NBI + BLI) ตัวเลขนี้สำคัญที่สุดในโปรเจกต์นี้ — เพราะมันบอกว่า Model "เอาความรู้ไปใช้กับของใหม่" ได้ดีแค่ไหน ไม่ใช่แค่ท่องจำสิ่งที่เคยเห็น</p>
+<hr />
+<h3>ภาพรวม Cross-Modal mAP@50</h3>
+<p><img alt="Cross-Modal Heatmap" src="cross_modal_heatmap.png" /></p>
+<blockquote>
+<p>ยิ่งสีเข้ม = ยิ่งแม่น · แถว = Model · คอลัมน์ = ประเภทกล้อง · สังเกตว่า YOLO26s (แถวบนสุด) จางลงชัดเจนตั้งแต่ FICE เป็นต้นไป</p>
+</blockquote>
+<h3>ตารางผลเต็ม (mAP@50)</h3>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>WLI (เทรน)</th>
+<th>LCI</th>
+<th>FICE</th>
+<th>NBI</th>
+<th>BLI</th>
+<th>Avg OOD</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>YOLO26s</strong></td>
+<td>0.983</td>
+<td>0.980</td>
+<td>0.881</td>
+<td>0.790</td>
+<td>0.761</td>
+<td>0.853</td>
+</tr>
+<tr>
+<td><strong>YOLOv11n</strong></td>
+<td>0.977</td>
+<td>0.977</td>
+<td>0.962</td>
+<td>0.929</td>
+<td>0.921</td>
+<td>0.947</td>
+</tr>
+<tr>
+<td><strong>YOLOv11s</strong></td>
+<td>0.983</td>
+<td><strong>0.992</strong></td>
+<td>0.961</td>
+<td><strong>0.943</strong></td>
+<td><strong>0.940</strong></td>
+<td><strong>0.959</strong></td>
+</tr>
+<tr>
+<td><strong>YOLOv8n</strong></td>
+<td><strong>0.983</strong></td>
+<td>0.989</td>
+<td><strong>0.963</strong></td>
+<td>0.926</td>
+<td>0.933</td>
+<td>0.953</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>WLI</strong> = กล้องที่ใช้เทรน (ผลสูงทุกตัวเพราะเคยเห็นมาก่อน) · <strong>LCI/FICE/NBI/BLI</strong> = กล้องที่ไม่เคยเห็นเลยระหว่างเทรน · <strong>Avg OOD</strong> = ค่าเฉลี่ยของ 4 กล้องที่ไม่เคยเห็น ตัวเลขนี้สำคัญที่สุด</p>
+</blockquote>
+<p><strong>จุดสังเกต:</strong> YOLO26s ทำได้ดีพอๆ กับทุกตัวบน WLI (0.983) แต่พอเปลี่ยนกล้องเป็น NBI หรือ BLI ผลตกหนักมาก ในขณะที่ YOLOv11s คงที่ในระดับสูงทุก Modality — นี่คือหัวใจของการทดลองนี้</p>
+<hr />
+<h2>สิ่งที่ค้นพบ</h2>
+<h3>1. Model ใหญ่กว่าไม่ได้แปลว่าดีกว่า</h3>
+<p>YOLO26s กับ YOLOv11s มีขนาดใกล้กันมาก (9.47M vs 9.41M Parameters) แต่ผลต่างกันมาก</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>WLI → BLI ตก</th>
+<th>WLI → NBI ตก</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>YOLO26s</td>
+<td><strong>−22.2%</strong></td>
+<td><strong>−19.3%</strong></td>
+</tr>
+<tr>
+<td>YOLOv11n</td>
+<td>−5.6%</td>
+<td>−4.8%</td>
+</tr>
+<tr>
+<td>YOLOv11s</td>
+<td>−4.3%</td>
+<td>−3.9%</td>
+</tr>
+<tr>
+<td>YOLOv8n</td>
+<td>−5.0%</td>
+<td>−5.7%</td>
+</tr>
+</tbody>
+</table>
+<p>YOLO26s ตกหนักกว่า YOLOv11s ถึง 4-5 เท่า ทั้งที่มีขนาดเท่ากัน</p>
+<p>สาเหตุที่เป็นไปได้: YOLO26s เรียนรู้จาก WLI จนจำ "สีและ Texture" ของกล้องแสงขาวได้ดีมาก แต่พอกล้องเปลี่ยนเป็น NBI (สีน้ำเงิน-เขียว) หรือ BLI (สีน้ำเงินเข้ม) มันคลาดเคลื่อนและตรวจพลาด ต่างจาก YOLOv11s ที่ดูเหมือนเข้าใจ "รูปทรงของติ่งเนื้อ" มากกว่าสี จึงยังทำงานได้แม้แสงจะเปลี่ยนไป</p>
+<h3>2. YOLOv11s ดีที่สุดโดยรวม</h3>
+<ul>
+<li>ค่าเฉลี่ยกล้องที่ไม่เคยเห็น (Avg OOD): <strong>95.9%</strong></li>
+<li>LCI ได้สูงสุด <strong>99.2%</strong> — เพราะ LCI ใช้แสงที่ใกล้เคียง WLI มากที่สุด Model จึงแทบไม่สับสน</li>
+<li>สม่ำเสมอทุก Modality ไม่มีจุดอ่อนชัดเจน</li>
+</ul>
+<h3>3. YOLOv8n คุ้มค่าที่สุด</h3>
+<p>YOLOv8n ใช้ Parameters แค่ 3.01M — น้อยกว่า YOLOv11s ถึง 3 เท่า แต่ได้ผล 95.3% Avg OOD ห่างกันแค่ 0.6% ถ้าต้องการ Deploy บนอุปกรณ์ที่มีพลังประมวลผลจำกัด YOLOv8n น่าสนใจมาก</p>
+<h3>4. ลำดับการตกเหมือนกันทุก Model</h3>
+<p>ทุก Model ตกตามลำดับ: <strong>LCI น้อยสุด → FICE → NBI → BLI มากสุด</strong></p>
+<p>ลำดับนี้ตรงกับความต่างของแสงพอดี — LCI แสงใกล้ WLI มากที่สุด BLI แสงต่างมากที่สุด แสดงว่าการตกที่เห็นมาจาก "ความต่างของกล้อง" จริงๆ ไม่ใช่ข้อบกพร่องของ Model ที่แก้ได้ด้วยการเลือก Architecture ต่างกัน</p>
+<hr />
+<h2>Hyperparameter Tuning — ทดลองปรับค่าสี (HSV Ablation)</h2>
+<p>ใน YOLO มี parameter ชื่อ HSV ที่ควบคุมว่าระหว่างเทรน Model จะเห็น "สีที่สุ่มเปลี่ยนไปมา" มากแค่ไหน เพื่อไม่ให้มันติดกับสีแบบใดแบบหนึ่งจนเกินไป</p>
+<p>ในการเทรนหลัก ผมเปิด HSV=0.7 ไว้ (ค่า default) เพื่อให้ Model เห็นสีหลากหลายระหว่างเทรน — hypothesis คือถ้ามันเห็นสีหลายแบบ มันจะไม่ยึดติดกับสีของ WLI และ generalize ข้าม modality ได้ดีขึ้น</p>
+<p>แต่ในงานวิจัยด้าน Medical Imaging มีแนวคิดตรงข้ามว่า "สีของเนื้อเยื่อคือข้อมูลที่สำคัญ" เช่น สีแดง = อักเสบ สีซีด = สภาพเนื้อเยื่อ ถ้าสุ่มเปลี่ยนสีตลอด Model อาจเรียนรู้ที่จะ <strong>ไม่ใช้สีในการตัดสินใจ</strong> ซึ่งอาจทำให้พลาด feature สำคัญที่แพทย์ใช้จริง</p>
+<p>เลยทดลองเทรน YOLOv11s อีกรอบโดย <strong>Lock สีไว้ที่ค่าจริง (HSV=0)</strong> แล้วเปรียบผล</p>
+<h3>ผลการทดลอง</h3>
+<table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>HSV=0.7 (เปิดสุ่มสี)</th>
+<th>HSV=0 (Lock สี)</th>
+<th>ดีกว่า</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WLI</td>
+<td>0.983</td>
+<td>0.949</td>
+<td>HSV=0.7</td>
+</tr>
+<tr>
+<td>LCI</td>
+<td>0.992</td>
+<td>0.931</td>
+<td>HSV=0.7</td>
+</tr>
+<tr>
+<td>FICE</td>
+<td>0.961</td>
+<td>0.933</td>
+<td>HSV=0.7</td>
+</tr>
+<tr>
+<td>NBI</td>
+<td>0.943</td>
+<td>0.872</td>
+<td>HSV=0.7</td>
+</tr>
+<tr>
+<td><strong>BLI</strong></td>
+<td><strong>0.940</strong></td>
+<td><strong>0.975</strong></td>
+<td><strong>HSV=0 ← ข้อยกเว้น</strong></td>
+</tr>
+<tr>
+<td>Avg OOD</td>
+<td>0.959</td>
+<td>0.928</td>
+<td>HSV=0.7</td>
+</tr>
+</tbody>
+</table>
+<p>ผลโดยรวม HSV=0.7 ชนะใน 4 จาก 5 Modality แต่ BLI คือข้อยกเว้นที่น่าสนใจ</p>
+<p><strong>คำอธิบายเบื้องต้น:</strong> BLI ใช้แสงสีน้ำเงิน Narrow-band ที่ต่างจาก WLI มากที่สุด เมื่อ Lock สีไว้ Model อาจหันไปพึ่งพารูปทรง (Shape) มากขึ้น ซึ่งอาจช่วยได้ในกรณีที่สีต่างกันสุดขั้ว</p>
+<hr />
+<h3>สิ่งที่ต้องระวังก่อนสรุปว่า "HSV=0.7 ชนะ"</h3>
+<p>ผลข้างบนดูชัด แต่มีประเด็นที่ต้องคิดให้รอบก่อนสรุปเด็ดขาด</p>
+<p><strong>1. ผลนี้มาจาก seed เดียว — อาจเป็นความบังเอิญ</strong></p>
+<p>YOLO training มีความแปรปรวนตามธรรมชาติ เทรนสองรอบด้วยข้อมูลเดิมแต่ seed ต่าง ตัวเลขก็อาจต่างกัน ±2–4% ได้โดยไม่มีอะไรเปลี่ยน</p>
+<p>ส่วนต่างระหว่าง HSV=0.7 กับ HSV=0 บน BLI คือ 3.5% ซึ่งอยู่ใน range ของ variance ปกติ ดังนั้น "BLI exception" อาจไม่ใช่ signal จริง แต่เป็นแค่ผลของ seed นั้น — ต้องรัน 3–5 seeds แล้วดู average ถึงจะสรุปได้มั่นใจ</p>
+<p><strong>2. คำอธิบายเรื่อง Shape ยังไม่ได้พิสูจน์จริง</strong></p>
+<p>ที่บอกว่า "HSV=0 พึ่ง Shape มากขึ้น" ยังเป็นแค่ hypothesis ไม่ใช่สิ่งที่ตรวจวัดได้จากตัวเลขนี้ตรงๆ</p>
+<p>วิธีพิสูจน์ที่ถูกต้องคือทำ <strong>EigenCAM / Grad-CAM</strong> ซึ่งเป็น visualization ที่แสดงว่า Model "มองไปที่ส่วนไหนของภาพ" ก่อนตัดสินใจ ถ้า HSV=0 พึ่ง Shape จริง จะเห็น attention กระจุกที่ขอบ (edge) ของติ่งเนื้อ ถ้ายังพึ่งสี จะเห็นกระจุกที่ texture ของเนื้อเยื่อ — นี่คือ next step ที่ควรทำก่อนสรุป</p>
+<p><strong>3. NBI ขัดแย้งกับคำอธิบายที่ให้ไป</strong></p>
+<p>ถ้า "กล้องที่ต่างจาก WLI มาก → HSV=0 ทำได้ดีกว่า" เป็นกฎจริง NBI ก็ควรแสดง pattern เดียวกับ BLI เพราะ NBI ก็ใช้แสง Narrow-band และต่างจาก WLI มาก</p>
+<p>แต่จริงๆ บน NBI — HSV=0.7 ยังชนะตามปกติ (0.943 vs 0.872)</p>
+<p>นั่นแปลว่าคำอธิบายที่ให้มายังไม่ครอบคลุมทุกกรณี มีปัจจัยอื่นที่ยังไม่ได้อธิบาย</p>
+<p><strong>4. เราปิด HSV ทั้งหมดพร้อมกัน ทั้งที่ควรทดสอบทีละแกน</strong></p>
+<p>HSV ใน YOLO จริงๆ แยกเป็น 3 แกน:
+- <strong>H (Hue)</strong> = เฉดสี เช่น แดง น้ำเงิน เขียว
+- <strong>S (Saturation)</strong> = ความเข้มของสี
+- <strong>V (Value)</strong> = ความสว่าง</p>
+<p>การที่ NBI/BLI ใช้แสง Narrow-band หมายความว่ามันต่างจาก WLI ที่ <strong>Hue</strong> เป็นหลัก ไม่ใช่ Saturation หรือ Brightness</p>
+<p>ดังนั้นถ้าจะทดลองอย่างตรงประเด็น ควรปิดทีละแกน แทนที่จะปิดหมดพร้อมกัน — อาจเป็น Hue augmentation ที่ขับ generalization จริงๆ ไม่ใช่ Saturation/Value</p>
+<p><strong>5. Average OOD อาจไม่ใช่ metric ที่ hospital ต้องการจริงๆ</strong></p>
+<p>เราสรุปว่า HSV=0.7 ชนะเพราะ Average OOD ดีกว่า แต่ในการ Deploy จริง โรงพยาบาลแต่ละแห่งใช้กล้องยี่ห้อเดียว เช่น Olympus (NBI) หรือ Fujifilm (BLI) ไม่ได้ใช้ครบ 5 ชนิดในห้องเดียว</p>
+<p>ถ้าโรงพยาบาลเป้าหมายใช้ BLI เป็นหลัก → HSV=0 คือตัวที่ดีกว่าสำหรับเขา ทั้งที่ average แพ้</p>
+<p>ยิ่งถ้าคิดในแง่ Medical Screening — การพลาดติ่งเนื้อ 1 เม็ดมีโอกาสกลายเป็นมะเร็งในอนาคต ดังนั้น Recall สูง (ตรวจเจอให้ครบ) อาจสำคัญกว่า Average mAP ในบางบริบท</p>
+<hr />
+<p><strong>ข้อสรุปที่ซื่อสัตย์ที่สุด:</strong> จากการทดลองนี้ HSV=0.7 น่าจะเป็นตัวเลือกที่ดีกว่าโดยรวม แต่ยังมีคำถามที่เปิดค้างไว้หลายข้อ — โดยเฉพาะ BLI exception ที่ต้องการ seed เพิ่ม และ EigenCAM เพื่อยืนยัน hypothesis ก่อนสรุปได้อย่างมั่นใจ</p>
+<hr />
+<h2>วิเคราะห์ข้อผิดพลาด</h2>
+<h3>ทำไม YOLO26s ถึงทำได้ไม่ดีที่สุด ทั้งที่เป็นรุ่นใหม่สุด?</h3>
+<p>YOLO26s ทำ WLI ได้ 98.3% เท่ากับทุกตัว แต่พอกล้องเปลี่ยน ผลตกหนักมาก นั่นแปลว่ามันไม่ได้ "ไม่เก่ง" — มันเก่งมากแต่เก่งแบบผิดวิธี มันจำ "หน้าตา" ของ WLI ไว้แม่น แต่ไม่ได้เข้าใจว่าติ่งเนื้อมีรูปทรงยังไง</p>
+<p>เปรียบได้กับคนที่จำได้ว่าหมาตัวที่บ้านมีขนสีน้ำตาล พอเจอหมาขาวก็จำไม่ออก ต่างจากคนที่เข้าใจว่า "หมา" มี 4 ขา มีหาง มีหู ซึ่งจำได้ไม่ว่าสีอะไร</p>
+<h3>ช่องว่างที่เหลือใน YOLOv11s</h3>
+<p>ที่ YOLOv11s ยังตกอยู่บ้างบน NBI/BLI ไม่ใช่ความผิดพลาดของ Model ครับ มันคือ "ขีดจำกัดจริง" ของการเทรนด้วยกล้องชนิดเดียว ต้องแก้ด้วยการเพิ่มข้อมูลจาก NBI/BLI เข้าไปในการเทรน ไม่ใช่การเปลี่ยน Architecture</p>
+<hr />
+<h2>ข้อจำกัดและสิ่งที่ต้องทำต่อ</h2>
+<p>จากการทดลอง HSV Ablation พบว่า HSV=0.7 ให้ผลดีกว่า HSV=0 ในเกือบทุก Modality ยกเว้น BLI ที่ HSV=0 ทำได้ดีกว่า ซึ่งน่าสนใจมากเพราะ BLI คือ Modality ที่แตกต่างจาก WLI มากที่สุด</p>
+<p>ข้อจำกัดของโปรเจกต์นี้:</p>
+<ol>
+<li><strong>เทรนแค่ WLI เท่านั้น</strong> — ถ้าเพิ่มข้อมูลจาก NBI หรือ BLI เข้าไปในการเทรน น่าจะช่วยปิดช่องว่างที่เหลืออยู่ได้มาก</li>
+<li><strong>Test set ของกล้องชนิดอื่นมีน้อยมาก</strong> — BLI และ LCI มีแค่ 7-9 รูปใน Test set ตัวเลขที่ได้อาจไม่เสถียรพอที่จะสรุปได้อย่างมั่นใจ 100%</li>
+<li><strong>Tune ได้แค่ HSV</strong> — ยังไม่ได้ทดลองปรับ Learning Rate, จำนวน Epoch ที่มากขึ้น หรือค่าอื่นๆ</li>
+<li><strong>ยังไม่ได้วิเคราะห์ทีละภาพ</strong> — รู้แค่ตัวเลขรวม ยังไม่รู้ว่า Model พลาดรูปแบบไหนบ้าง เช่น ติ่งเนื้อขนาดเล็ก หรือบริเวณขอบภาพ</li>
+</ol>
+<hr />
+<h2>การตั้งค่าการเทรน</h2>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>ค่าที่ใช้</th>
+<th>เหตุผล</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Modality ที่เทรน</td>
+<td>WLI เท่านั้น</td>
+<td>ศึกษาว่าความรู้จากกล้องชนิดเดียวไปได้ไกลแค่ไหน</td>
+</tr>
+<tr>
+<td>แบ่ง Dataset</td>
+<td>70 / 15 / 15</td>
+<td>ใช้ Official Split ของ PolypDB</td>
+</tr>
+<tr>
+<td>Epochs</td>
+<td>100</td>
+<td>เพียงพอสำหรับ Convergence บน T4 GPU (~2 ชั่วโมงต่อ Model)</td>
+</tr>
+<tr>
+<td>Image Size</td>
+<td>640px</td>
+<td>มาตรฐาน YOLO</td>
+</tr>
+<tr>
+<td>Batch Size</td>
+<td>32</td>
+<td>พอดี VRAM 16GB</td>
+</tr>
+<tr>
+<td>hsv_s / hsv_v</td>
+<td>0.7 / 0.4</td>
+<td>สุ่มสีเพื่อช่วย Generalize ข้าม Modality</td>
+</tr>
+<tr>
+<td>Hardware</td>
+<td>Kaggle T4 GPU</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Dataset</h2>
+<p><strong>PolypDB</strong> — Jha et al. 2024 (<a href="https://arxiv.org/abs/2409.00045">arXiv:2409.00045</a>)
+3,934 ภาพ Colonoscopy · 5 Modality · 3 โรงพยาบาล (นอร์เวย์, สวีเดน, เวียดนาม)</p>
+<hr />
+<h2>สรุปงานที่ส่งมอบ</h2>
+<table>
+<thead>
+<tr>
+<th>รายการ</th>
+<th>สถานะ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Training Notebook (Kaggle)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Evaluation Script</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Cross-modal Results CSV</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Heatmap Visualization</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Dataset Preparation Script</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>HSV Ablation Run</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>README ภาษาอังกฤษ</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>รายงานภาษาไทย</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>PDF Report</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Model Weights (4 Model + HSV Ablation)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Per-image Error Analysis</td>
+<td>❌ ยังไม่ได้ทำ</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><em>สตางค์ · มิถุนายน 2569</em></p></body></html>
