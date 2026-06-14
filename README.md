@@ -101,10 +101,10 @@ YOLO26s has **4–5× larger cross-modal drop** than the v11/v8 architectures.
 | Dataset split | 70 / 15 / 15 (train / val / test) |
 | Epochs | 100 |
 | Image size | 640px |
-| Augmentation | HSV locked (hsv_h/s/v = 0.0), spatial flips, mixup |
+| Augmentation | HSV enabled (hsv_h=0.015, hsv_s=0.7, hsv_v=0.4), spatial flips, mixup |
 | Hardware | Kaggle T4 GPU |
 
-**HSV lock rationale:** Standard YOLO augmentation applies HSV jitter by default. For medical endoscopy this is incorrect — color carries diagnostic signal (redness = inflammation, pallor = tissue state). Locking HSV preserves the biological markers that enable cross-modal transfer.
+**HSV augmentation rationale:** Standard YOLO HSV values (hsv_s=0.7, hsv_v=0.4) were kept to introduce color variance during training. The hypothesis was that exposing the model to a wider range of color conditions would help it generalize across modalities with different color profiles. Note: พี่ฟิล์ม's baseline used HSV=0 (locked) based on the reasoning that tissue color carries diagnostic signal — comparing these two approaches is a natural next experiment.
 
 ---
 
