@@ -151,6 +151,33 @@ All four architectures were trained under **identical conditions**. The only var
 
 ---
 
+## Hyperparameter Tuning — HSV Ablation
+
+One hyperparameter was ablated directly: **HSV augmentation** (hsv_s, hsv_v).
+
+The baseline experiment used HSV=0.7/0.4. This run tests HSV=0 (locked) on YOLOv11s under identical conditions to isolate the effect of color augmentation on cross-modal generalization.
+
+### Results: YOLOv11s HSV=0 vs HSV=0.7
+
+| Modality | HSV=0.7 | HSV=0 | Winner |
+|---|---|---|---|
+| WLI (train) | 0.983 | 0.949 | HSV=0.7 |
+| LCI | 0.992 | 0.931 | HSV=0.7 |
+| FICE | 0.961 | 0.933 | HSV=0.7 |
+| NBI | 0.943 | 0.872 | HSV=0.7 |
+| **BLI** | **0.940** | **0.975** | **HSV=0** |
+| **Avg OOD** | **0.959** | **0.928** | **HSV=0.7** |
+
+### Interpretation
+
+HSV=0.7 outperforms HSV=0 on 4 of 5 modalities. The result challenges the simple hypothesis that "medical imaging requires locked HSV because color is a diagnostic signal."
+
+**The BLI exception is notable:** BLI uses the most extreme narrow-band light (410nm blue-dominant) — the highest domain shift from WLI. HSV=0 outperforms on BLI specifically, suggesting that for extreme domain shifts, a model that relies less on color augmentation may better preserve shape-based features that transfer across fundamentally different lighting conditions.
+
+**Tentative conclusion:** HSV augmentation helps generalization in moderate domain shifts (LCI, FICE, NBI) but the relationship may invert at extreme domain shift (BLI). This is a hypothesis for future validation with larger test sets.
+
+---
+
 ## Dataset
 
 **PolypDB** — Jha et al. 2024 ([arXiv:2409.00045](https://arxiv.org/abs/2409.00045))  
